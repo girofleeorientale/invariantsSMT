@@ -89,7 +89,7 @@ let smtlib_of_wa p =
     ^str_assert (str_condition p.inits) in
   let assertion_condition p =
     "; l'assertion finale est vérifiée\n"
-    ^"TODO " (* À compléter *) in
+    ^"TODO " (* À compléter   *) in
   let call_solver =
     "; appel au solveur\n(check-sat-using (then qe smt))\n(get-model)\n(exit)\n" in
   String.concat "\n" [declare_invariant p.nvars;
