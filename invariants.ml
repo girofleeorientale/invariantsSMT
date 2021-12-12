@@ -10,15 +10,18 @@ type term =
 type test = 
  | Equals of term * term
  | LessThan of term * term
+ | MoreOrEquals of term * term
 
 let tt = Equals (Const 0, Const 0)
 let ff = LessThan (Const 0, Const 0)
  
 type program = {nvars : int; 
+                vars : term list;
                 inits : term list; 
                 mods : term list; 
                 loopcond : test; 
-                assertion : test}
+                assertion : test;
+                finalcond: test}
 
 let x n = "x" ^ string_of_int n
 
@@ -33,13 +36,14 @@ let rec str_of_term t =
     match t with
     | Const z -> string_of_int(z)
     | Var z -> "x"^string_of_int(z)
-    | Add (z, w) -> "(+"^str_of_term z ^" "^ str_of_term w ^")"
-    | Mult (z, w) -> "(*"^str_of_term z ^" "^ str_of_term w ^")"
+    | Add (z, w) -> "(+ "^str_of_term z ^" "^ str_of_term w ^")"
+    | Mult (z, w) -> "(* "^str_of_term z ^" "^ str_of_term w ^")"
   
 let str_of_test t =
     match t with 
-    | Equals (x, z) -> "(= "^str_of_term z ^" "^ str_of_term z ^")"
-    | LessThan (x, z) -> "(< "^str_of_term z ^" "^ str_of_term z ^")"
+    | Equals (x, z) -> "(= "^str_of_term x ^" "^ str_of_term z ^")"
+    | LessThan (x, z) -> "(< "^str_of_term x ^" "^ str_of_term z ^")"
+    | MoreOrEquals (x, z) -> "(>= "^str_of_term x ^" "^ str_of_term z ^")"
 
 let string_repeat s n =
   Array.fold_left (^) "" (Array.make n s)
@@ -69,8 +73,11 @@ let str_assert s = "(assert " ^ s ^ ")"
 
 let str_assert_forall n s = 
   let rec line n =
-    String.concat " " (List.init n (fun i -> "(x"^string_of_int(i)^" Int) "))
-    in "(assert (forall "^line n^" "^s^"))"
+    (* String.concat " " (List.init n (fun i -> "(x"^string_of_int(i)^" Int) "))
+    in "(assert (forall ("^line n^"("^s^"))))" *)
+    String.concat " " (List.init n (fun i -> "(x"^string_of_int(i+1)^" Int) "))
+    in "(assert (forall ("^line n^") "
+    
 
 (* Question 4. Nous donnons ci-dessous une définition possible de la
    fonction smt_lib_of_wa. Complétez-la en écrivant les définitions de
@@ -83,13 +90,17 @@ let smtlib_of_wa p =
     ^"(declare-fun Invar (" ^ string_repeat "Int " n ^  ") Bool)" in
   let loop_condition p =
     "; la relation Invar est un invariant de boucle\n"
-    ^str_assert_forall p.nvars (str_of_test p.loopcond)  in
+    ^str_assert_forall p.nvars (str_of_test p.loopcond) ^"(=> (and " 
+    ^str_condition(p.vars) ^" "^str_of_test (p.loopcond) ^")" ^ 
+    str_condition(p.mods) ^ ")))" in
   let initial_condition p =
     "; la relation Invar est vraie initialement\n"
     ^str_assert (str_condition p.inits) in
   let assertion_condition p =
     "; l'assertion finale est vérifiée\n"
-    ^"TODO " (* À compléter   *) in
+    ^str_assert_forall p.nvars (str_of_test p.loopcond) ^"(=> (and " 
+    ^str_condition(p.vars) ^" "^str_of_test (p.finalcond) ^")" ^ 
+    str_of_test(p.assertion) ^ ")))"in
   let call_solver =
     "; appel au solveur\n(check-sat-using (then qe smt))\n(get-model)\n(exit)\n" in
   String.concat "\n" [declare_invariant p.nvars;
@@ -100,8 +111,10 @@ let smtlib_of_wa p =
 
 let p1 = {nvars = 2;
           inits = [(Const 0) ; (Const 0)];
+          vars = [(Var 1); (Var 2)];
           mods = [Add ((Var 1), (Const 1)); Add ((Var 2), (Const 3))];
           loopcond = LessThan ((Var 1),(Const 3));
+          finalcond = MoreOrEquals ((Var 1),(Const 3));
           assertion = Equals ((Var 2),(Const 9))}
 
 
